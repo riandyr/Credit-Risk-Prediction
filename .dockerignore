@@ -1,0 +1,15 @@
+# Ignorer les répertoires de tests
+Tests/
+
+# Ignorer les notebooks Jupyter
+notebooks/
+
+
+# Ignorer les données, sauf si tu veux les inclure dans l'image
+data/
+
+# Ignorer l'environnement virtuel
+.venv/
+
+# Ne pas ignorer mlruns, car il contient les résultats et les modèles
+#mlruns/  <- Ne pas mettre ce répertoire dans .dockerignore

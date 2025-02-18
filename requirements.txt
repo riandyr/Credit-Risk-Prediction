@@ -1,0 +1,5 @@
+scikit-learn
+pandas
+fastapi
+uvicorn[standard]  # Uvicorn is the ASGI server for FastAPI
+mlflow
