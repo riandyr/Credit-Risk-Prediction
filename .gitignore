@@ -1,4 +1,4 @@
 mlruns/
 .venv/
 models/
-Tests/
+tests/
