@@ -7,17 +7,17 @@ import joblib
 
 #uvicorn app:app --reload
 # 743f1fbe1cb54518b2ea372e307f27b7
-# Chargement du modèle mlflow
+# Loading the mlflow model
 model = mlflow.pyfunc.load_model("models:/credit_scoring/latest")
 
-# IMPORTANT :
-# L'encodeur doit avoir été entraîné sur les colonnes suivantes :
+# IMPORTANT:
+# The encoder must have been trained on the following columns:
 # ['person_home_ownership', 'loan_intent', 'cb_person_default_on_file', 'age_group', 'loan_amnt_group', 'income_group']
-# Si ce n'est pas le cas, ré-entraînez-le sur votre jeu de données d'entraînement après avoir créé ces colonnes.
+# If this is not the case, retrain it on your training dataset after creating these columns.
 encoder = joblib.load("models/encoder.pkl")
 expected_columns = joblib.load("models/expected_columns.pkl")
 
-# Définition du modèle d'entrée
+# Defining the input model
 class InputData(BaseModel):
     person_age: float
     person_income: float
@@ -31,7 +31,7 @@ class InputData(BaseModel):
     cb_person_cred_hist_length: float
 
 def preprocess_data(data: pd.DataFrame, encoder: OneHotEncoder, expected_columns: list) -> pd.DataFrame:
-    # Création des colonnes catégorielles calculées
+    # Creating calculated categorical columns
     age_order = ["18-30", "30-40", "40-50", "50-60", "60+"]
     data['age_group'] = pd.cut(
         data['person_age'],
@@ -56,7 +56,7 @@ def preprocess_data(data: pd.DataFrame, encoder: OneHotEncoder, expected_columns
         right=False
     )
     
-    # Liste des colonnes catégorielles à encoder (les colonnes calculées DOIVENT être présentes lors du fit)
+    # List of categorical columns to encode (the calculated columns MUST be present during the fit)
     categorical_columns = [
         'person_home_ownership',
         'loan_intent',
@@ -66,7 +66,7 @@ def preprocess_data(data: pd.DataFrame, encoder: OneHotEncoder, expected_columns
         'income_group'
     ]
     
-    # Encodage one-hot avec l'encodeur pré-entraîné
+    # One-hot encoding with the pre-trained encoder
     encoded_array = encoder.transform(data[categorical_columns])
     encoded_df = pd.DataFrame(
         encoded_array,
@@ -74,35 +74,35 @@ def preprocess_data(data: pd.DataFrame, encoder: OneHotEncoder, expected_columns
         index=data.index
     )
     
-    # On retire les colonnes catégorielles d'origine et on concatène les colonnes encodées
+    # Remove the original categorical columns and concatenate the encoded columns
     data = data.drop(columns=categorical_columns)
     data = pd.concat([data, encoded_df], axis=1)
     
-    # Réordonner les colonnes selon l'ordre attendu par le modèle
+    # Reorder the columns according to the expected order by the model
     data = data.reindex(columns=expected_columns, fill_value=0)
     
     return data
 
-# Création de l'application FastAPI
+# Creating the FastAPI application
 app = FastAPI()
 
 @app.post("/predict/")
 def predict(input_data: InputData):
     try:
-        # Conversion des données d'entrée en DataFrame
+        # Convert the input data into a DataFrame
         data = pd.DataFrame([input_data.dict()])
         
-        # Calcul des caractéristiques dérivées numériques
+        # Calculate derived numerical features
         data['loan_to_income'] = data['loan_amnt'] / data['person_income']
         data['loan_to_emp_length_ratio'] = data['person_emp_length'] / data['loan_amnt']
         data['int_rate_to_loan_amnt_ratio'] = data['loan_int_rate'] / data['loan_amnt']
         
-        # Prétraitement : création des colonnes calculées, encodage et réordonnancement
+        # Preprocessing: creating calculated columns, encoding, and reordering
         data = preprocess_data(data, encoder, expected_columns)
         
-        # Prédiction avec le modèle
+        # Prediction with the model
         prediction = model.predict(data)
         return {"prediction": prediction.tolist()}
     
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Erreur lors de la prédiction: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Error during prediction: {str(e)}")
